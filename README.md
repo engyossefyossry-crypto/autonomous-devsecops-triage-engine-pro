@@ -10,6 +10,10 @@
   <img src="https://img.shields.io/badge/Security-DevSecOps_Hardened-38A169?style=for-the-badge&logo=dataguard&logoColor=white" alt="Security">
 </p>
 
+<p align="center">
+  <img src="assets/workflow-canvas1.png" alt="Autonomous DevSecOps Triage Engine PRO Workflow Canvas" width="100%">
+</p>
+
 ---
 
 ## 📖 The Evolution: Moving from Basic Automation to LLMOps
