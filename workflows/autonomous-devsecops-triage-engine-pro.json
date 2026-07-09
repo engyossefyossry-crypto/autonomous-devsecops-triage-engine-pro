@@ -1,0 +1,1777 @@
+{
+  "name": "DevSecOps Triage Engine PRO",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "==A new production incident has broken out. Execute high-tier data triage operations immediately.\n\nIncident ID: {{ $json.incident_id }}\nTrigger Source: {{ $json.source }}\nTimestamp: {{ $json.timestamp }}\n\nRAW LOG DATA ENVELOPE:\n----------------------------------------\n{{ $json.raw_log }}\n----------------------------------------\n\nAnalyze the envelope data, isolate structural parameters, and output the normalized JSON block matching the mandatory schema.",
+        "options": {
+          "systemMessage": "You are the Incident Commander (Data Triage Officer) managing a critical production crisis. Your primary objective is to ingest raw, chaotic system error logs and normalize them into a structured intelligence packet for a downstream parallel swarm of specialized AI agents.\n\nYour job is NOT to solve the issue, write code, or evaluate security risks. You are a pure structural orchestrator.\n\nCRITICAL PROCESSING RULES:\n1. Identify and extract the core anomaly markers from the incoming log context.\n2. Determine a preliminary triage classification based on the error signature (e.g., INFRASTRUCTURE_FAILURE, MEMORY_LEAK, DATA_EXPOSURE, UNHANDLED_EXCEPTION, DATABASE_DROP).\n3. Output the parsed information into a strict JSON envelope.\n\nCRITICAL OUTPUT RULE:\nYou must return ONLY a single valid JSON block wrapped inside markdown ```json ``` code blocks. Do not append conversational introductory text, pleasantries, or concluding notes.\n\nThe JSON structure MUST exactly match this structural schema:\n{\n  \"incident_id\": \"Pass through the incoming incident_id exactly\",\n  \"source\": \"Pass through the incoming trigger source exactly\",\n  \"timestamp\": \"Pass through the incoming timestamp exactly\",\n  \"triage_metadata\": {\n    \"classification\": \"The category of the failure (uppercase string)\",\n    \"primary_error_message\": \"The main error line or stack trace signature isolated from the raw log\",\n    \"impacted_subsystem\": \"The specific microservice, module, or database cluster impacted if identifiable\"\n  },\n  \"raw_log_context\": \"The full raw log payload passed along for downstream agent parsing\"\n}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -64,
+        -48
+      ],
+      "id": "66e64fb8-3f88-4f42-944f-e08bc502e49e",
+      "name": "Supervisor Orchestrator",
+      "retryOnFail": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ensure we handle whatever item comes through the active execution stream\nconst items = $input.all();\nlet outputItem = {};\n\ntry {\n    // 1. Check if we are on the Error Track (Incoming data from the Error Informer node)\n    const errorInformerNode = $('Error informer') ?.item ?.json;\n    const isExplicitErrorTrack = !!errorInformerNode;\n\n    // 2. Extract Inspector data if it executed successfully\n    let inspectorData = null;\n    try {\n        inspectorData = $('Inspector') ?.item ?.json;\n    } catch (e) {\n        // Inspector node skipped or failed completely\n    }\n\n    // Determine if the pipeline failed validation or ran into a system error\n    if (isExplicitErrorTrack || !inspectorData || inspectorData.passed_inspection === false) {\n        // BUILD ACCELERATED ERROR PACKET\n        outputItem = {\n            status: \"error\",\n            timestamp: new Date().toISOString(),\n            error_details: {\n                type: errorInformerNode?.isolated_exception || \"PIPELINE_VALIDATION_FAILURE\",\n                summary: errorInformerNode?.root_cause_summary || inspectorData?.override_notes || \"The Triage Inspector failed validation rules due to swarm conflicts.\",\n                raw_payload: errorInformerNode?.raw_telemetry_payload || JSON.stringify(inspectorData) || \"No raw telemetry provided.\"\n            }\n        };\n    } else {\n        // BUILD ENTERPRISE SUCCESS PACKET\n        const devNode = $('Hardcore Developer').item.json;\n        const securityNode = $('Risk Evaluator').item.json;\n        const prNode = $('PR & Status Manager').item.json;\n        \n        // Grab passing incident parameters safely\n        const baseTrigger = $input.item.json; \n\n        outputItem = {\n            status: \"success\",\n            incident_id: baseTrigger?.incident_id || \"INC-\" + Math.floor(Math.random() * 100000),\n            timestamp: new Date().toISOString(),\n            \n            // Aggregated Swarm Intelligence\n            diagnostics: {\n                classification: baseTrigger?.triage_metadata?.classification || \"UNKNOWN\",\n                root_cause: devNode?.root_cause || \"No code diagnostics provided.\",\n                proposed_patch: devNode?.proposed_patch || \"// Code patch unavailable.\",\n                security_risk_score: securityNode?.risk_score || 0,\n                security_cve: securityNode?.cve_reference || \"N/A\",\n                security_containment: securityNode?.containment_protocol || \"No containment available.\",\n                communications_slack: prNode?.internal_slack_markdown || \"\",\n                communications_public: prNode?.public_status_page || \"\"\n            },\n            \n            // Metas & Validation Data\n            pipeline_metrics: {\n                inspector_summary: inspectorData?.evaluation_summary || \"Passed manual inspection.\",\n                dev_confidence: devNode?.confidence_score || 0,\n                security_confidence: securityNode?.confidence_score || 0,\n                pr_confidence: prNode?.confidence_score || 0\n            },\n\n            // METRIC PAYLOAD FOR DASHBOARD ENGINE (GRAFANA/INFLUX)\n            grafana_metrics: {\n                measurement: \"production_incidents\",\n                tags: {\n                    status: \"resolved_triage\",\n                    classification: baseTrigger?.triage_metadata?.classification || \"GENERAL_BUG\",\n                    cve_linked: (securityNode?.cve_reference !== \"N/A\") ? \"true\" : \"false\"\n                },\n                fields: {\n                    risk_score: Number(securityNode?.risk_score || 0),\n                    dev_confidence: Number(devNode?.confidence_score || 0),\n                    security_confidence: Number(securityNode?.confidence_score || 0),\n                    pipeline_passed: 1\n                }\n            }\n        };\n    }\n} catch (globalError) {\n    // Ultimate Fallback to keep n8n from completely freezing if the JS layer breaks\n    outputItem = {\n        status: \"error\",\n        timestamp: new Date().toISOString(),\n        error_details: {\n            type: \"AGGREGATOR_CRITICAL_EXCEPTIONAL_CRASH\",\n            summary: \"The Aggregator JavaScript node experienced a parsing execution failure.\",\n            raw_payload: globalError.message\n        }\n    };\n}\n\nreturn [{ json: outputItem }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2272,
+        -80
+      ],
+      "id": "8dcd3e9b-8a96-472c-a19c-6382aa8edc1c",
+      "name": "Aggregator Layer"
+    },
+    {
+      "parameters": {
+        "owner": {
+          "__rl": true,
+          "value": "test",
+          "mode": "name"
+        },
+        "repository": {
+          "__rl": true,
+          "value": "test",
+          "mode": "name"
+        },
+        "title": "={{ $json.app_targets.github_issue_data.title }}",
+        "body": "={{ $json.app_targets.github_issue_data.body }}",
+        "labels": [],
+        "assignees": []
+      },
+      "type": "n8n-nodes-base.github",
+      "typeVersion": 1.1,
+      "position": [
+        3472,
+        -240
+      ],
+      "id": "6fd3d084-9969-4257-abe8-f1afc26d0a76",
+      "name": "Create an issue",
+      "webhookId": "3263a9f5-7e3e-4677-8700-e425caa85aa7",
+      "credentials": {
+        "githubApi": {
+          "id": "TWJtC7CjloO4UQG1",
+          "name": "GitHub account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "path": "9107c0e7-a63e-4ea1-ad9b-30e8a0590f85",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1024,
+        -48
+      ],
+      "id": "0cc15262-b132-490d-99f4-51a19eb14dfb",
+      "name": "Production Incident Detector",
+      "webhookId": "9107c0e7-a63e-4ea1-ad9b-30e8a0590f85"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "25d69d53-06db-40e1-ab86-cfed7a17443f",
+              "name": "myCustomPrompt",
+              "value": "SYSTEM_AUDIT_REPORT: Latency anomaly detected in authentication cluster. Connection pooling limits reached. Database connection drop rate climbed to 4.2% over the last 30 minutes. Automated routine scan indicates potential unhandled rejection inside customer data matching array loops.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -864,
+        144
+      ],
+      "id": "813c3c1c-f951-4415-8e54-ec1825b1a075",
+      "name": "Automated Prompt"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst result = [];\n\nfor (const item of items) {\n  let rawLog = \"\";\n  let source = \"Unknown Trigger\";\n\n  // Case A: Triggered via Production Webhook\n  if (item.json.body) {\n    rawLog = typeof item.json.body === 'object' ? JSON.stringify(item.json.body, null, 2) : item.json.body;\n    source = \"Production Webhook Fire Alarm\";\n  } \n  // Case B: Triggered via Automated Prompt / Schedule Node\n  else if (item.json.myCustomPrompt || item.json.text) {\n    rawLog = item.json.myCustomPrompt || item.json.text;\n    source = \"Scheduled Morning Audit\";\n  } \n  // Case C: Fallback / Test Execution\n  else {\n    rawLog = Object.keys(item.json).length > 0 ? JSON.stringify(item.json, null, 2) : \"No log provided. System testing sequence initiated.\";\n    source = \"Manual/Test Sandbox Trigger\";\n  }\n\n  result.push({\n    json: {\n      incident_id: \"INC-\" + Math.floor(100000 + Math.random() * 900000),\n      timestamp: new Date().toISOString(),\n      source: source,\n      raw_log: rawLog\n    }\n  });\n}\n\nreturn result;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -640,
+        -48
+      ],
+      "id": "6a365e71-4b8e-43db-b89a-4de36a7975f5",
+      "name": "Data Preparer"
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -192,
+        368
+      ],
+      "id": "5480d9aa-1f45-46c8-ab7f-7954f4305b73",
+      "name": "llama-3.3-70b",
+      "credentials": {
+        "groqApi": {
+          "id": "SpMVBXJG17bfObKc",
+          "name": "Pablo Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "google/gemini-2.5-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        704,
+        48
+      ],
+      "id": "2fc534bc-1e60-436f-ac63-9fe8b39a17d0",
+      "name": "gemini-2.5-flash-lite",
+      "credentials": {
+        "openRouterApi": {
+          "id": "oP1Y6Ftprl3UH23P",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-20b:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        704,
+        576
+      ],
+      "id": "6c87d81c-c766-4ca3-a06f-d3d52662fdfc",
+      "name": "openai/gpt-oss-20b",
+      "credentials": {
+        "openRouterApi": {
+          "id": "oP1Y6Ftprl3UH23P",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "test",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "123567890",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3680,
+        -240
+      ],
+      "id": "987eb88a-64f3-4eff-ac7c-60964bbb4e12",
+      "name": "Store Data of Session",
+      "credentials": {
+        "googleApi": {
+          "id": "q5K01vTPzaavu1Y4",
+          "name": "Google Service Account account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "guildId": {
+          "__rl": true,
+          "value": "1342115137108185161",
+          "mode": "list",
+          "cachedResultName": "BLXPAB TEST",
+          "cachedResultUrl": "https://discord.com/channels/1342115137108185161"
+        },
+        "channelId": {
+          "__rl": true,
+          "value": "1342115137758429258",
+          "mode": "list",
+          "cachedResultName": "general-main",
+          "cachedResultUrl": "https://discord.com/channels/1342115137108185161/1342115137758429258"
+        },
+        "content": "={{ $json.app_targets.discord_message }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [
+        3472,
+        -64
+      ],
+      "id": "a059f4c3-25f3-4b59-b93a-29a30eeb6b88",
+      "name": "Send to Devlogs channel",
+      "webhookId": "4f88df14-91d5-4361-a63e-f78c85088115",
+      "credentials": {
+        "discordBotApi": {
+          "id": "vVyR5qX10qJjpB91",
+          "name": "Bliksem Discord Bot account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "yourid",
+        "text": "={{ $json.app_targets.telegram_message }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3680,
+        -64
+      ],
+      "id": "38b5c278-b6f8-446d-9ca9-61633471cb56",
+      "name": "Send to DevGroup",
+      "webhookId": "6016c21b-98d3-4afe-84dc-ecf642420eb5",
+      "credentials": {
+        "telegramApi": {
+          "id": "j6UoP8DnUHEyNaPv",
+          "name": "Bliksem Acc"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "1234567890",
+          "mode": "id"
+        },
+        "text": "={{ $json.app_targets.slack_message }}",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.5,
+      "position": [
+        3472,
+        128
+      ],
+      "id": "2e5881df-266a-496e-85a3-c7754cccfaa0",
+      "name": "Send to Team",
+      "webhookId": "0543f9bb-209d-46ff-b95f-368c62f62500",
+      "credentials": {
+        "slackApi": {
+          "id": "AYPCNuKAAgd8UwiX",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "sendTo": "test@gmail.com",
+        "subject": "={{ $json.gmail_subject }}",
+        "message": "={{ $json.app_targets.gmail_html_body }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        3680,
+        128
+      ],
+      "id": "ded6e226-1837-4ecc-9645-c8c9e8de93bd",
+      "name": "Send to Director",
+      "webhookId": "2a2449d5-c1db-42db-9142-b63f2ce16009",
+      "credentials": {
+        "googleApi": {
+          "id": "q5K01vTPzaavu1Y4",
+          "name": "Google Service Account account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "eKuEPBxP2huwXIGQ",
+          "mode": "list",
+          "cachedResultName": "Store Debugging Attempt to Workflow",
+          "cachedResultUrl": "/projects/aUIpJCCbG7qqCID9/datatables/eKuEPBxP2huwXIGQ"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "patch_snippet": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('patch_snippet', ``, 'string') }}",
+            "line_number": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('line_number', ``, 'string') }}",
+            "target_file": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('target_file', ``, 'string') }}",
+            "incident_id": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('incident_id', ``, 'string') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "incident_id",
+              "displayName": "incident_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "target_file",
+              "displayName": "target_file",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "line_number",
+              "displayName": "line_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "patch_snippet",
+              "displayName": "patch_snippet",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTableTool",
+      "typeVersion": 1.1,
+      "position": [
+        1040,
+        48
+      ],
+      "id": "81b967ea-94ca-40cf-afc8-3b9e448a79c0",
+      "name": "Store Debugging Attempt to Workflow"
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "tf1MJbOjCZEvnsHi",
+          "mode": "list",
+          "cachedResultName": "Store Current Status to Workflow",
+          "cachedResultUrl": "/projects/aUIpJCCbG7qqCID9/datatables/tf1MJbOjCZEvnsHi"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status_page_published": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('status_page_published', ``, 'string') }}",
+            "slack_published": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('slack_published', ``, 'string') }}",
+            "incident_id": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('incident_id', ``, 'string') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "incident_id",
+              "displayName": "incident_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "slack_published",
+              "displayName": "slack_published",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "status_page_published",
+              "displayName": "status_page_published",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTableTool",
+      "typeVersion": 1.1,
+      "position": [
+        1040,
+        576
+      ],
+      "id": "9b56bfc2-d7f7-41a8-909c-08ffd1dfdccd",
+      "name": "Store Current Status to Workflow"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $execution.id }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        896,
+        176
+      ],
+      "id": "17f23fa6-f731-4e71-8ce9-92d57ad6810b",
+      "name": "Debugging Memory"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $execution.id }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        896,
+        704
+      ],
+      "id": "3dffb1a4-04d0-413a-af39-6cde76af82ac",
+      "name": "Status Memory"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -1024,
+        144
+      ],
+      "id": "b5adee06-3c31-4f83-bec1-9fba0a09384d",
+      "name": "Regular Scanner: Everyday at 9am"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $execution.id }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        896,
+        -272
+      ],
+      "id": "41a3c6a2-37f9-47ea-b8aa-b35bab1e807e",
+      "name": "Evaluation Memory"
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "AFXNfYMnMdltv2cI",
+          "mode": "list",
+          "cachedResultName": "Store Evaluation Attempt to Workflow",
+          "cachedResultUrl": "/projects/aUIpJCCbG7qqCID9/datatables/AFXNfYMnMdltv2cI"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "containment_protocol": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('containment_protocol', ``, 'string') }}",
+            "risk_score": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('risk_score', ``, 'string') }}",
+            "incident_id": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('incident_id', ``, 'string') }}",
+            "compliance_impact": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('compliance_impact', ``, 'string') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "incident_id",
+              "displayName": "incident_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "risk_score",
+              "displayName": "risk_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "compliance_impact",
+              "displayName": "compliance_impact",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "containment_protocol",
+              "displayName": "containment_protocol",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTableTool",
+      "typeVersion": 1.1,
+      "position": [
+        1040,
+        -432
+      ],
+      "id": "7e7e9980-5cd7-482a-905f-2c455202c2b5",
+      "name": "Store Evaluation Attempt to Workflow"
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        1904,
+        128
+      ],
+      "id": "4c568b33-71ea-4331-be7e-03545280e718",
+      "name": "llama-3.3-70b1",
+      "credentials": {
+        "groqApi": {
+          "id": "SpMVBXJG17bfObKc",
+          "name": "Pablo Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "google/gemma-4-31b-it:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        704,
+        -432
+      ],
+      "id": "2eaef00f-2f19-4419-997f-ac6a9084c4c8",
+      "name": "gemma-4-31b",
+      "credentials": {
+        "openRouterApi": {
+          "id": "oP1Y6Ftprl3UH23P",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "==Execute technical code diagnostics on the following triaged incident data packet:\n\nIncident ID: {{ $json.incident_id }}\nClassification: {{ $json.triage_metadata.classification }}\nPrimary Error: {{ $json.triage_metadata.primary_error_message }}\nSubsystem: {{ $json.triage_metadata.impacted_subsystem }}\n\nRAW LOG CONTEXT FOR PARSING:\n----------------------------------------\n{{ $json.raw_log_context }}\n----------------------------------------\n\nConsult your historical data tables and context memory. Generate your technical root cause, design a highly resilient proposed patch, and declare your confidence metrics using the strict JSON schema.",
+        "needsFallback": true,
+        "options": {
+          "systemMessage": "You are the Lead Core Software Engineer in the DevSecOps swarm. Your primary objective is to execute deep code diagnostics, identify the technical root cause of an incident, and propose a highly accurate structural patch.\n\nOPERATIONAL ASSETS & CONTEXT:\n1. DATA TABLE TOOLS: You have read access to the 'historical_bug_fixes' and 'deployment_manifests' data tables. Use them to trace structural dependencies or see how similar system components were patched in past versions.\n2. CONTEXT MEMORY: You have semantic access to past incident logs. If this exception stack trace or failure signature mirrors a historical incident in memory, heavily cross-reference that resolution pattern.\n3. CONFIDENCE SYSTEM: You must quantitatively self-assess your analysis. Provide a float score between 0.0 (blind guess) and 1.0 (absolute certainty) with a rigorous technical justification.\n\nCRITICAL OUTPUT RULE:\nYou must return ONLY a single valid JSON block wrapped inside markdown ```json ``` code blocks. No conversational fluff or introductory sentences.\n\nREQUIRED JSON OUTPUT SCHEMA:\n{\n  \"root_cause\": \"Detailed architectural explanation of why this error or crash occurred based on the log snippet.\",\n  \"proposed_patch\": \"Clean, syntactically correct code patch, configuration rewrite, or precise terminal commands to mitigate the issue.\",\n  \"confidence_score\": 0.0,\n  \"confidence_justification\": \"Why did you assign this score? Reference the specific code familiarity, log clarity, or matching memory footprints.\"\n}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        800,
+        -64
+      ],
+      "id": "3317fffb-0012-420f-a5f2-04871b1dec95",
+      "name": "Hardcore Developer",
+      "retryOnFail": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "==Execute immediate threat modeling and security analysis on this triaged incident data packet:\n\nIncident ID: {{ $json.incident_id }}\nClassification: {{ $json.triage_metadata.classification }}\nPrimary Error: {{ $json.triage_metadata.primary_error_message }}\nSubsystem: {{ $json.triage_metadata.impacted_subsystem }}\n\nRAW LOG CONTEXT FOR THREAT MODELING:\n----------------------------------------\n{{ $json.raw_log_context }}\n----------------------------------------\n\nCross-reference your vulnerability threat matrix tables and security memory profiles. Calculate the risk score, isolate the incident using a precise containment protocol, and assert your confidence metrics using the strict JSON schema.",
+        "needsFallback": true,
+        "options": {
+          "systemMessage": "You are the Principal Security Architect and Incident Responder. Your primary objective is to evaluate the security impact of a production failure, flag vulnerability exploits, check for data leakage, and establish immediate containment firewalls.\n\nOPERATIONAL ASSETS & CONTEXT:\n1. DATA TABLE TOOLS: You have access to the 'cve_threat_matrix' and 'network_ingress_rules' data tables. Use them to match signature exploits, known CVE vectors, or to look up active security classification tiers.\n2. CONTEXT MEMORY: Review historical attack vectors and security incidents stored in memory. Look for matching indicators of compromise (IoCs), coordinated credential stuffing, or recurring blast radius patterns.\n3. CONFIDENCE SYSTEM: You must declare an explicit confidence level for your security risk assessment. Provide a float score between 0.0 and 1.0, backed by data-driven justification.\n\nCRITICAL OUTPUT RULE:\nYou must return ONLY a single valid JSON block wrapped inside markdown ```json ``` code blocks. No conversational fluff.\n\nREQUIRED JSON OUTPUT SCHEMA:\n{\n  \"risk_score\": 5,\n  \"cve_reference\": \"CVE-XXXX-XXXX or 'N/A' if it is a pure structural/infrastructure bug\",\n  \"containment_protocol\": \"Step-by-step security actions required immediately to isolate the threat, revoke tokens, block IPs, or spin down compromised instances.\",\n  \"confidence_score\": 0.0,\n  \"confidence_justification\": \"Justification for your score based on the clarity of the security threat markers or lack of specific exploit signatures.\"\n}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        800,
+        -544
+      ],
+      "id": "9fd3a89a-bd6e-4c33-960f-55eb1ea9b6f5",
+      "name": "Risk Evaluator",
+      "retryOnFail": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "==Draft multi-channel communication profiles for this triaged incident data packet:\n\nIncident ID: {{ $json.incident_id }}\nClassification: {{ $json.triage_metadata.classification }}\nPrimary Error: {{ $json.triage_metadata.primary_error_message }}\nSubsystem: {{ $json.triage_metadata.impacted_subsystem }}\n\nRAW LOG CONTEXT FOR SITUATIONAL AWARENESS:\n----------------------------------------\n{{ $json.raw_log_context }}\n----------------------------------------\n\nEvaluate customer SLAs, query previous incidents for communication tone templates, draft your internal and public messages cleanly, and assert your confidence metrics using the strict JSON schema.",
+        "needsFallback": true,
+        "options": {
+          "systemMessage": "You are the Crisis Communications Director and Brand Safeguard Manager. Your primary objective is to synthesize raw infrastructure disasters into clean, clear, panic-free communications for both internal engineers and external users.\n\nOPERATIONAL ASSETS & CONTEXT:\n1. DATA TABLE TOOLS: You have read access to the 'sla_customer_tiers' and 'on_call_schedules' data tables. Use them to identify which customer segments are affected and who is currently handling operations.\n2. CONTEXT MEMORY: Look at past incident notifications in your communication memory. Maintain absolute consistency in corporate tone, empathy levels, and clarity rules from successful past resolutions.\n3. CONFIDENCE SYSTEM: Assess how confident you are in this communication strategy. If the logs are highly obscure and the root cause unknown, your public update needs to safely state that \"we are investigating\" instead of making false claims. Output a float between 0.0 and 1.0.\n\nCRITICAL COMMUNICATION SAFEGUARDS:\n* NEVER leak passwords, API keys, database URLs, or internal system configurations to the public status page text.\n* Keep internal Slack updates highly technical, structured, and operational.\n* Keep public updates transparent, reassuring, and focused on restoration.\n\nCRITICAL OUTPUT RULE:\nYou must return ONLY a single valid JSON block wrapped inside markdown ```json ``` code blocks. No conversational fluff.\n\nREQUIRED JSON OUTPUT SCHEMA:\n{\n  \"internal_slack_markdown\": \"Highly detailed markdown message for internal engineering channels summarizing the problem, current owner, and blast radius.\",\n  \"public_status_page\": \"A clean, highly professional, non-technical message suitable for the public status page tracking the current incident state.\",\n  \"confidence_score\": 0.0,\n  \"confidence_justification\": \"Why you assigned this confidence score based on the completeness of information provided by the triage packet.\"\n}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        800,
+        464
+      ],
+      "id": "6f51c9c8-5e12-44d1-975d-62afe4e4ad08",
+      "name": "PR & Status Manager",
+      "retryOnFail": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        1296,
+        1504
+      ],
+      "id": "8c7c3faf-cbda-45b0-9007-e06eaba97fdb",
+      "name": "gpt-oss-120b",
+      "credentials": {
+        "groqApi": {
+          "id": "SpMVBXJG17bfObKc",
+          "name": "Pablo Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "google/gemma-4-26b-a4b-it:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        704,
+        176
+      ],
+      "id": "6a6627d9-3100-4eef-8e9f-fa0420f5799e",
+      "name": "gemma-4-26b-a4b-it",
+      "credentials": {
+        "openRouterApi": {
+          "id": "oP1Y6Ftprl3UH23P",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "google/gemma-4-26b-a4b-it:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        704,
+        -272
+      ],
+      "id": "0d2c99be-5c93-4d47-a6ff-619f0f5866a9",
+      "name": "gemma-4-26b-a4b-it1",
+      "credentials": {
+        "openRouterApi": {
+          "id": "oP1Y6Ftprl3UH23P",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "google/gemma-4-26b-a4b-it:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        704,
+        704
+      ],
+      "id": "e6d14f73-3faf-4a2c-bc91-28e83a619e9c",
+      "name": "gemma-4-26b-a4b-it2",
+      "credentials": {
+        "openRouterApi": {
+          "id": "oP1Y6Ftprl3UH23P",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.item.json;\nconst isSuccess = (item.status === \"success\");\n\nlet slack = \"\";\nlet gmail = \"\";\nlet discord = {};\nlet github = {};\nlet telegram = \"\";\nlet google_sheets = {};\n\nif (isSuccess) {\n    // 🟢 BUILD SUCCESS DELIVERABLES\n    const d = item.diagnostics;\n    const m = item.pipeline_metrics;\n\n    // Slack Markdown Payload\n    slack = d.communications_slack + `\\n\\n*Pipeline Health Info:* Dev Confidence: \\`${m.dev_confidence}\\` | Sec Confidence: \\`${m.security_confidence}\\``;\n\n    // Gmail Beautiful HTML Template\n    gmail = `\n    <div style=\"font-family: Arial, sans-serif; max-width: 600px; border: 1px solid #1a3322; border-radius: 8px; padding: 20px;\">\n        <h2 style=\"color: #2e7d32; border-bottom: 2px solid #2e7d32; padding-bottom: 5px;\">🟢 Production Incident Mitigated [${item.incident_id}]</h2>\n        <p><strong>Classification:</strong> ${d.classification}</p>\n        <p><strong>Root Cause Analysis:</strong></p>\n        <blockquote style=\"background: #f1f8e9; padding: 10px; border-left: 4px solid #8bc34a;\">${d.root_cause}</blockquote>\n        <p><strong>Proposed Source Remediation:</strong></p>\n        <pre style=\"background: #272727; color: #a6e22e; padding: 12px; border-radius: 4px; overflow-x: auto;\"><code>${d.proposed_patch}</code></pre>\n        <p><strong>Security Protocols Activated [Risk Score: ${d.security_risk_score}]:</strong></p>\n        <p style=\"color: #c62828;\">${d.security_containment}</p>\n        <p style=\"font-size: 11px; color: #777;\">Triage System Token Authentication Key: ${item.timestamp}</p>\n    </div>`;\n\n    // Discord Rich Embed Object\n    discord = {\n        content: `🚨 **Incident Resolved & Triaged: ${item.incident_id}**`,\n        embeds: [{\n            title: `Classification: ${d.classification}`,\n            description: d.communications_public,\n            color: 3066993, // Green\n            fields: [\n                { name: \"Risk Assessment Score\", value: `${d.security_risk_score}/10`, inline: true },\n                { name: \"Linked CVE Matrix\", value: d.security_cve, inline: true }\n            ]\n        }]\n    };\n\n    // GitHub Issue Formatter\n    github = {\n        title: `[Triage-Autofix] Production Incident ${item.incident_id} - ${d.classification}`,\n        body: `### Technical Diagnostics\\n\\n**Root Cause:**\\n${d.root_cause}\\n\\n### Proposed Code Patch\\n\\`\\`\\`javascript\\n${d.proposed_patch}\\n\\`\\`\\`\\n\\n### Security Containment\\n${d.security_containment}`\n    };\n\n    // Telegram Compact Emojis\n    telegram = `🟢 *INCIDENT TRIAGED: ${item.incident_id}*\\n\\n• Type: ${d.classification}\\n• Risk Score: ${d.security_risk_score}/10\\n• Status: Public status page updated successfully. Check engineering channels for the hot patch.`;\n\n    // Google Sheets Row Flattener\n    google_sheets = {\n        incident_id: item.incident_id,\n        status: \"SUCCESS_TRIAGED\",\n        timestamp: item.timestamp,\n        classification: d.classification,\n        risk_score: d.security_risk_score,\n        patch_provided: d.proposed_patch ? \"YES\" : \"NO\",\n        error_log_summary: \"N/A\"\n    };\n\n} else {\n    // 🔴 BUILD FAILURE / ERROR DELIVERABLES\n    const err = item.error_details;\n\n    slack = `🚨 *CRITICAL: DevSecOps Triage Engine Outage!*\\n• *Type:* \\`${err.type}\\`\\n• *Summary:* ${err.summary}\\n• *Raw Data:* \\`${err.raw_payload}\\``;\n\n    gmail = `\n    <div style=\"font-family: Arial, sans-serif; max-width: 600px; border: 1px solid #b71c1c; border-radius: 8px; padding: 20px;\">\n        <h2 style=\"color: #c62828; border-bottom: 2px solid #c62828; padding-bottom: 5px;\">🔴 Automated Triage Pipeline Outage</h2>\n        <p style=\"color: #b71c1c;\"><strong>Critical Error Intercepted inside the n8n Core Layer.</strong></p>\n        <p><strong>Exception Pattern:</strong> ${err.type}</p>\n        <p><strong>Operational Impact:</strong> ${err.summary}</p>\n        <p><strong>Raw Diagnostics:</strong></p>\n        <pre style=\"background: #f5f5f5; color: #333; padding: 10px; border: 1px dashed #ccc;\">${err.raw_payload}</pre>\n    </div>`;\n\n    discord = {\n        content: `💥 **CRITICAL SYSTEM ALERT: Automation Pipeline Broken**`,\n        embeds: [{\n            title: `Pipeline Exception: ${err.type}`,\n            description: err.summary,\n            color: 15158332, // Red\n            fields: [{ name: \"Raw Trace\", value: err.raw_payload.substring(0, 1024) }]\n        }]\n    };\n\n    github = {\n        title: `[URGENT OMNI-CRASH] DevSecOps Engine Failure - ${err.type}`,\n        body: `The autonomous triage agent network encountered a fatal execution roadblock.\\n\\n**Reason:** ${err.summary}\\n\\n**Raw Stack Tracking:**\\n\\`\\`\\`text\\n${err.raw_payload}\\n\\`\\`\\``\n    };\n\n    telegram = `🔴 *PIPELINE OUTAGE ALERT*\\n\\nAn engineering exception broke the automation framework.\\n• *Error:* ${err.type}\\n• *Details:* ${err.summary}`;\n\n    google_sheets = {\n        incident_id: \"ERR-\" + Math.floor(Math.random() * 100000),\n        status: \"PIPELINE_CRASHED\",\n        timestamp: item.timestamp,\n        classification: \"N/A\",\n        risk_score: 10, // Max alert for system crashes\n        patch_provided: \"NO\",\n        error_log_summary: err.summary\n    };\n}\n\n// Package everything cleanly into a standardized output interface\nreturn [{\n    json: {\n        meta_status: item.status,\n        app_targets: {\n            slack_message: slack,\n            gmail_html_body: gmail,\n            discord_embed: discord,\n            github_issue_data: github,\n            telegram_text: telegram,\n            google_sheets_row: google_sheets\n        }\n    }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3264,
+        -64
+      ],
+      "id": "962b1609-68a7-4c78-88da-0a167aa8afb8",
+      "name": "Final Output"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rule": [
+            {
+              "modelIndex": 2,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "f82a6fee-f656-4207-a08a-07772a155323",
+                    "leftValue": "={{ $json.raw_log.length }}",
+                    "rightValue": 4000,
+                    "operator": {
+                      "type": "number",
+                      "operation": "gt"
+                    }
+                  },
+                  {
+                    "id": "92991bd3-0c74-4829-9514-17105b7a187f",
+                    "leftValue": "={{ JSON.stringify($json.raw_log) }}",
+                    "rightValue": "OOM|FATAL|OUT_OF_MEMORY|SECURITY_BREACH|CVE",
+                    "operator": {
+                      "type": "string",
+                      "operation": "regex"
+                    }
+                  }
+                ],
+                "combinator": "or"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "5b380299-e8e6-4e66-9140-8f1a80aed31c",
+                    "leftValue": "={{ $json.raw_log.length }}",
+                    "rightValue": 4000,
+                    "operator": {
+                      "type": "number",
+                      "operation": "lte"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.modelSelector",
+      "typeVersion": 1,
+      "position": [
+        -144,
+        208
+      ],
+      "id": "4f78ef07-bc3d-42e4-b618-c28c598a0afe",
+      "name": "Model Selector"
+    },
+    {
+      "parameters": {
+        "model": "google/gemini-2.5-pro",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        -64,
+        368
+      ],
+      "id": "dd1a1c00-1078-4965-944f-9513539e1144",
+      "name": "gemini-2.5-pro",
+      "credentials": {
+        "openRouterApi": {
+          "id": "oP1Y6Ftprl3UH23P",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "==Review the unified intelligence deliverables from the downstream AI Swarm:\n\n[HARDCORE DEVELOPER CLAIMS]\n{{ JSON.stringify($('Hardcore Developer').item.json) }}\n\n[RISK EVALUATOR CLAIMS]\n{{ JSON.stringify($('Risk Evaluator').item.json) }}\n\n[PR & STATUS MANAGER CLAIMS]\n{{ JSON.stringify($('PR & Status Manager').item.json) }}\n\nExecute a full alignment inspection and verify system integrity using the mandatory JSON schema.",
+        "options": {
+          "systemMessage": "You are the Chief Quality Assurance Inspector and Operational Gatekeeper. Your job is to analyze the collective outputs of the 3 parallel AI Agents (Hardcode Developer, Risk Evaluator, and PR & Status Manager).\n\nYOUR TASK:\n1. Cross-examine the outputs for structural consistency.\n2. Verify that the proposed patch does not violate the security containment rules.\n3. Check the confidence scores. If any worker agent submitted a confidence score below 0.4, or if there are clear technical contradictions between reports, you must fail the inspection.\n\nREQUIRED JSON OUTPUT SCHEMA:\n{\n  \"passed_inspection\": true, \n  \"conflict_detected\": false,\n  \"evaluation_summary\": \"High-level summary of the cross-agent consensus, validating their confidence scores and coordination alignment.\",\n  \"override_notes\": \"If passed_inspection is false, detail exactly what technical contradiction or low confidence score triggered the validation failure. Otherwise leave empty.\"\n}\n\nCRITICAL RULE:\nReturn ONLY a single valid JSON block wrapped inside markdown ```json ``` code blocks. Do not add intro or outro chat text."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1904,
+        -80
+      ],
+      "id": "b247d2be-140a-4c61-808f-dd90c8656420",
+      "name": "Inspector",
+      "retryOnFail": true,
+      "executeOnce": false,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "updateFields": {}
+      },
+      "type": "n8n-nodes-base.grafana",
+      "typeVersion": 1,
+      "position": [
+        2880,
+        -256
+      ],
+      "id": "0be90d6c-42b6-4413-a814-8bf665c4b27c",
+      "name": "Update a dashboard"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.error.message }}",
+                    "rightValue": "400|context|token_limit|invalid|malformed|413",
+                    "operator": {
+                      "type": "string",
+                      "operation": "regex"
+                    },
+                    "id": "4d428161-39f6-4b2f-9178-efe4df33c195"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ERR: STRANGE DATA"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "896eb766-ec31-44bc-b086-7ff1a8b15bcd",
+                    "leftValue": "={{ $json.error.message }}",
+                    "rightValue": "429|timeout|deadline|rate_limit|503|504",
+                    "operator": {
+                      "type": "string",
+                      "operation": "regex"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ERR: MODEL LIMIT"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        448,
+        1296
+      ],
+      "id": "01ec7faa-68bf-4672-820f-b2afd350121e",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "==An internal automation node failure has occurred mid-pipeline. Synthesize this telemetry package immediately:\n\n[TARGET ANOMALY DATA]\nError Classification: {{ $json.error_type }}\nImpact Analysis: {{ $json.error_summary }}\nRaw Stack Trace: {{ $json.raw_details }}\n\nCompile the telemetry report matching the mandatory JSON schema structure.",
+        "options": {
+          "systemMessage": "You are the Systems Telemetry Informer. Your primary objective is to take structured pipeline error logs and compile a clean, highly authoritative System Anomaly Incident Report.\n\nYour job is to translate ugly raw stack traces and error codes into a highly professional executive summary that tells the downstream Inspector exactly what step failed and why.\n\nREQUIRED JSON OUTPUT SCHEMA:\n{\n  \"system_status\": \"DEGRADED_BY_ERROR\",\n  \"isolated_exception\": \"The error_type string passed to you\",\n  \"root_cause_summary\": \"A 2-sentence executive summary explaining the operational failure clearly\",\n  \"raw_telemetry_payload\": \"The raw_details string passed to you\"\n}\n\nCRITICAL RULE:\nReturn ONLY the raw JSON block inside markdown ```json ``` code blocks. No conversation."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1296,
+        1312
+      ],
+      "id": "6b17d9b4-51cb-4a57-9bd4-0b6028d9eb50",
+      "name": "Error informer",
+      "retryOnFail": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "83b5b1ac-8cac-4cf2-a795-5447cb053c7e",
+              "name": "error_type",
+              "value": "API_PROVIDER_THROTTLING_OR_TIMEOUT",
+              "type": "string"
+            },
+            {
+              "id": "a91b473a-6cd2-4222-bd79-09a528a3adb8",
+              "name": "error_summary",
+              "value": "The primary LLM endpoint encountered an active rate limit (429) or a gateway timeout (504/503). Compute resources are temporarily exhausted.",
+              "type": "string"
+            },
+            {
+              "id": "5fd3cfa5-47e9-47fc-aa52-dcb2498a0b7d",
+              "name": "raw_details",
+              "value": "={{ $json.error.message }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        864,
+        1312
+      ],
+      "id": "7e709c05-30a0-43fd-98af-af27c7c9bc68",
+      "name": "Error Message: Model hit its limit"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "248a4386-e509-497e-bf9b-6600d84c1787",
+              "name": "error_type",
+              "value": "CONTEXT_EXHAUSTION_OR_MALFORMED_INPUT",
+              "type": "string"
+            },
+            {
+              "id": "e07bb3fb-22ba-4850-8ca0-017cb8f36db7",
+              "name": "error_summary",
+              "value": "The engine rejected the intake payload. The raw server log footprint either exceeded the maximum context token window configuration or contained breaking characters.",
+              "type": "string"
+            },
+            {
+              "id": "7911b95d-3b64-49aa-8bab-f2a720bb60de",
+              "name": "raw_details",
+              "value": "={{ $json.error.message }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        864,
+        1136
+      ],
+      "id": "927b7437-4f9e-44ec-b222-53dc4235cfde",
+      "name": "Error Message: Failed to process Data"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cff8883f-3dac-4b71-a164-e27c3bb0231b",
+              "name": "error_type",
+              "value": "UNCLASSIFIED_INFRASTRUCTURE_EXCEPTION",
+              "type": "string"
+            },
+            {
+              "id": "5201d2dc-f4fe-4c0f-a36e-fb9c82b17176",
+              "name": "error_summary",
+              "value": "An unexpected infrastructure execution anomaly was captured within the cloud provider boundary tier.",
+              "type": "string"
+            },
+            {
+              "id": "37496240-f69e-4aed-a57e-78e5106a890f",
+              "name": "raw_details",
+              "value": "={{ $json.error.message }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        864,
+        1504
+      ],
+      "id": "5eeea3c3-a4d8-49be-b86c-a829f7479442",
+      "name": "Error Message: Other"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "531409f1-77d8-4cc5-8b01-e203154b5910",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "success",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2640,
+        -80
+      ],
+      "id": "e3e64385-2c23-4015-849f-6ffe1bf1d8bc",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "numberInputs": 3,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1568,
+        -96
+      ],
+      "id": "4b1b5a5e-6593-460d-914c-ddd90b5eaebe",
+      "name": "Merge: Position"
+    },
+    {
+      "parameters": {
+        "content": "### 📡 Ingestion Gateway & Inbound Telemetry Normalization\n\nThis layer serves as the entry point for system errors, decoupling raw incident vectors from the downstream processing core. \n* **Event-Driven Track:** An open Webhook Gateway acts as a reactive fire alarm, listening for real-time log exceptions emitted from runtime monitoring hubs (e.g., Grafana, Sentry, cloud instances).\n* **Scheduled Track:** A configurable Cron Trigger fires daily health-check scans at 09:00 AM for non-breaking codebase anomalies.\n* **The Data Preparer (JavaScript):** Both ingestion tracks converge here. This node cleans raw string noise, normalizes heterogeneous data keys, instantiates a persistent `incident_id` reference token, and injects a local sandbox mock matrix to allow developers to perform risk-free staging runs if the workflow is executed manually.",
+        "height": 672,
+        "width": 704,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1200,
+        -336
+      ],
+      "typeVersion": 1,
+      "id": "a7c3f828-d4b7-4770-9dde-e373e858ca81",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "### 🧠 Dynamic Governance & LLM Context Routing\n\nTo maximize logical processing performance while aggressively controlling corporate API token expenditures, this framework rejects single-model execution chains.\n* **Model Selector Logic:** A code-driven structural evaluation node analyzes incoming payloads based on stack trace payload volume, file weight, and error severity metadata. Heavy logs are automatically allocated to massive context-window model tracks, while standard syntactic exceptions utilize faster, cost-optimized token engines.\n* **Supervisor Incident Commander:** Operating on an ultra-low latency compute layer via the Groq API, this agent functions strictly as an operational orchestrator. It does not compose long prose; instead, it enforces structured multi-agent tool execution contracts and manages runtime context parsing rules.",
+        "height": 832,
+        "width": 784,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -432,
+        -304
+      ],
+      "typeVersion": 1,
+      "id": "910027e7-9be5-416d-9ae1-19dfbeeae220",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "### 🛡️ Fault-Tolerant Exception Interception Track\n\nA defensive runtime layer designed to protect the architecture from catastrophic failure or frozen workflows if downstream AI nodes hit infrastructural boundaries.\n* **The Switch Node Interceptor:** Configured with active `Continue with Error Output` error-handling flags, this junction catches raw API connection failures and drops them into explicit exception vectors: Provider Overloading/Throttling (HTTP 429/503), Context Window Exhaustion/Malformed Tokens (HTTP 400), or Unknown Structural Exceptions.\n* **Error Informer Node:** Rather than crashing the workflow canvas, localized error nodes normalize raw stack telemetry into an active machine-readable anomaly payload, maintaining schema integrity and sending an issue report down the pipeline.",
+        "height": 784,
+        "width": 1296
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        320,
+        912
+      ],
+      "typeVersion": 1,
+      "id": "ea54a4b7-c9a6-4d4c-a4cd-39a0a8b7ee09",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "### ⛓️ Asynchronous Multi-Agent Execution Core\n\nA decoupled worker agent cluster that processes isolated dimensions of the production disaster simultaneously across parallel execution paths:\n* **Forensic Analysis (Hardcore Developer):** Scans raw stack logs to isolate source files, line markers, and write deterministic hot-fix pseudo-code patches.\n* **Compliance & Mitigation (Risk Evaluator):** Cross-examines technical fixes against security guardrails, scanning for leaked API keys, predicting data vulnerability metrics, and issuing server container isolation protocols.\n* **Corporate Synthesis (PR & Status Manager):** Evaluates technical outputs to draft distinct text layers—internal markdown summaries for technical dev staff and calm status statements for consumer-facing dashboards.\n* **State Persistence:** Each agent stores its output mid-flight inside localized **n8n Data Tables** to secure a immutable historical audit log, forcing agents to supply a verified mathematical confidence score before advancing.",
+        "height": 1664,
+        "width": 992,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        416,
+        -816
+      ],
+      "typeVersion": 1,
+      "id": "cfb96ca9-310f-4d44-a734-12535df9912b",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "### 🕵️‍♂️ Consensus Auditing & Deterministic Data Fusion\n\nThe validation gatekeeper layer where parallel AI claims are consolidated, cross-checked, and fused using deterministic software rules.\n* **Positional Synchronization Gate:** Merge nodes are locked to `Match by Position` mode, acting as an alignment gate that prevents downstream duplication by combining separate agent fields into one item.\n* **The Auditing Inspector:** A specialized QA evaluation node that reviews the swarm's confidence scores and justifications. If it catches conflicting solutions or a score below `0.4`, it explicitly fails the inspection.\n* **The Aggregator Layer (JavaScript):** A zero-drift code engine that runs a clean execution check. If it encounters data from the Error Track or a failed inspection, it builds a formatted incident outage block. Otherwise, it merges successful data strings into an enterprise production contract.",
+        "height": 848,
+        "width": 992,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1472,
+        -416
+      ],
+      "typeVersion": 1,
+      "id": "7c7b1f09-16e0-453b-a462-7819b20b15f3",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "content": "### 🔀 Operational Routing Switchboard & Timeseries Telemetry\n\nA routing junction that prevents system data corruption across downstream notification hubs.\n* **Conditional Switch Routing:** The IF Node reads the immutable metadata string `status` provided directly by the Aggregator Layer.\n* **The True Track (Success Flow):** When the incident is successfully handled, data passes through the **Grafana/InfluxDB Metrics Node**, injecting live database logs containing threat classification tags, risk levels, and operational metrics into enterprise tracking infrastructure.\n* **The False Track (Degraded Flow):** When an explicit workflow outage or validation crash is flagged, the tracking engine is completely bypassed, keeping the main monitoring metrics clean while pushing error logs directly to engineering channels.",
+        "height": 608,
+        "width": 592,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        2528,
+        -560
+      ],
+      "typeVersion": 1,
+      "id": "90749d33-1b23-4a71-b06e-4723e75c980e",
+      "name": "Sticky Note5"
+    },
+    {
+      "parameters": {
+        "content": "### 🚀 Omni-Channel Presentation & Downstream Distribution Engine\n\nThe final delivery engine of the architecture. It handles data mapping across all corporate communications platforms without cluttering individual node configurations.\n* **The Final Output Formatter (JavaScript):** Rather than forcing independent target integration nodes to carry heavy expression bindings, this script evaluates the incoming pipeline health (Success vs. Failure) and creates distinct, highly stylized presentation structures inside the `app_targets` dictionary.\n* **Omni-Channel Execution:** Target nodes read pre-rendered strings natively: Markdown text routes straight to dev **Slack** alerts, custom Rich Embed blocks map to **Discord** security feeds, structured HTML layouts email executive blocks via **Gmail**, API vectors open hot-fix tickets on **GitHub Issues**, and flat rows log system data to audit-ready **Google Sheets**.",
+        "height": 928,
+        "width": 768
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        3184,
+        -560
+      ],
+      "typeVersion": 1,
+      "id": "24ce3ae2-24f2-4152-8406-f8426da410e2",
+      "name": "Sticky Note6"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Supervisor Orchestrator": {
+      "main": [
+        [
+          {
+            "node": "Risk Evaluator",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Hardcore Developer",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "PR & Status Manager",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregator Layer": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Production Incident Detector": {
+      "main": [
+        [
+          {
+            "node": "Data Preparer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Automated Prompt": {
+      "main": [
+        [
+          {
+            "node": "Data Preparer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Data Preparer": {
+      "main": [
+        [
+          {
+            "node": "Supervisor Orchestrator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "llama-3.3-70b": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Model Selector",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "gemini-2.5-flash-lite": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Hardcore Developer",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "openai/gpt-oss-20b": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "PR & Status Manager",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Debugging Attempt to Workflow": {
+      "ai_tool": [
+        [
+          {
+            "node": "Hardcore Developer",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Current Status to Workflow": {
+      "ai_tool": [
+        [
+          {
+            "node": "PR & Status Manager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Debugging Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Hardcore Developer",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Status Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "PR & Status Manager",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Regular Scanner: Everyday at 9am": {
+      "main": [
+        [
+          {
+            "node": "Automated Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluation Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Risk Evaluator",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Evaluation Attempt to Workflow": {
+      "ai_tool": [
+        [
+          {
+            "node": "Risk Evaluator",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "llama-3.3-70b1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Inspector",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "gemma-4-31b": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Risk Evaluator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Risk Evaluator": {
+      "main": [
+        [
+          {
+            "node": "Merge: Position",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hardcore Developer": {
+      "main": [
+        [
+          {
+            "node": "Merge: Position",
+            "type": "main",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PR & Status Manager": {
+      "main": [
+        [
+          {
+            "node": "Merge: Position",
+            "type": "main",
+            "index": 2
+          }
+        ],
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "gpt-oss-120b": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Error informer",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "gemma-4-26b-a4b-it": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Hardcore Developer",
+            "type": "ai_languageModel",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "gemma-4-26b-a4b-it1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Risk Evaluator",
+            "type": "ai_languageModel",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "gemma-4-26b-a4b-it2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "PR & Status Manager",
+            "type": "ai_languageModel",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Final Output": {
+      "main": [
+        [
+          {
+            "node": "Create an issue",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send to Devlogs channel",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send to Team",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Store Data of Session",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send to DevGroup",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send to Director",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Model Selector": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Supervisor Orchestrator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "gemini-2.5-pro": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Model Selector",
+            "type": "ai_languageModel",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Inspector": {
+      "main": [
+        [
+          {
+            "node": "Aggregator Layer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Aggregator Layer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update a dashboard": {
+      "main": [
+        [
+          {
+            "node": "Final Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Error Message: Failed to process Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Message: Model hit its limit",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Message: Other",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error informer": {
+      "main": [
+        [
+          {
+            "node": "Inspector",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Inspector",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Message: Model hit its limit": {
+      "main": [
+        [
+          {
+            "node": "Error informer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Message: Failed to process Data": {
+      "main": [
+        [
+          {
+            "node": "Error informer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Message: Other": {
+      "main": [
+        [
+          {
+            "node": "Error informer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Update a dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Final Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge: Position": {
+      "main": [
+        [
+          {
+            "node": "Inspector",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "61470827-cf1d-4a25-ab67-ecc0a7137c1f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "0b551a274afbd16f83492c9d02a91ddb0a0ff39cc3e0238b5ed00a1ee885346b"
+  },
+  "id": "ZcYn1kfLu5lKyAkh",
+  "tags": []
+}
